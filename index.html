@@ -1,0 +1,50 @@
+ <script src="https://deno.land/x/habitat/build/habitat-embed.js"></script>
+<script src="https://deno.land/x/mothertode/build/mothertode-embed.js"></script>
+<script>
+
+Habitat.install(window)
+MotherTode.install(window)
+	
+const LispTode = MotherTode(`
+	++ Sanitise
+	:: {WhiteSpace} Value EOF
+	>> ([ws, value]) => value.output
+	
+	WhiteSpace :: " " | "\n" | "	"
+	Sanitise <
+		:: /[^()]/ WhiteSpace* "(" >> ([c]) => c + " ("
+		:: ")" WhiteSpace* /[^()]/ >> ([close, gap, c]) => ") " + c
+		:: "(" WhiteSpace+ >> "("
+		:: WhiteSpace+ EOF >> ""
+		:: WhiteSpace+ ")" >> ")"
+		:: WhiteSpace+ >> " "
+		:: /[^]/
+	>*
+
+	Value :: Function | AtomLiteral | ListLiteral
+
+	AtomLiteral :: /[^() ]/+
+	ListLiteral :: "(" [Value {" " Value}] ")"
+	Function :: "(" < Quote Head Tail > ")" >> ([open, inner, close]) => inner.output
+	
+	List ++ Value /[^]/+ :: ListLiteral ?? ([open, inner]) => inner.length > 1
+
+	Quote :: "quote " Value >> ([quote, value]) => value.output
+	Head :: "head " List >> ([head, [open, [value]]]) => value.output
+	Tail :: "tail " List >> ([tail, [open, [head, value]]]) => "(" + value.output.trim() + ")"
+
+`).log()
+
+console.clear()
+LispTode.Sanitise("hi(yo)").output.d
+LispTode("Hello").output.d
+LispTode("(Hello world!)").output.d
+LispTode("(quote (Hello world!))").output.d
+LispTode("(head (2 3 5))").output.d
+LispTode("(tail (2 3 5))").output.d
+LispTode("(head (quote 2))").output.d
+LispTode("(head (quote (5 3)))").output.d
+LispTode("(head Lu)").output.d
+LispTode("(head())").output.d
+
+</script>
