@@ -12,6 +12,8 @@ const LispTode = MotherTode(`
 	
 	WhiteSpace :: " " | "\n" | "	"
 	Sanitise <
+		:: "(" WhiteSpace+ ")" >> "()"
+		:: ")" WhiteSpace+ "(" >> ") ("
 		:: /[^()]/ WhiteSpace* "(" >> ([c]) => c + " ("
 		:: ")" WhiteSpace* /[^()]/ >> ([close, gap, c]) => ") " + c
 		:: "(" WhiteSpace+ >> "("
@@ -21,30 +23,76 @@ const LispTode = MotherTode(`
 		:: /[^]/
 	>*
 
-	Value :: Function | AtomLiteral | ListLiteral
+	Value < FunctionCall Literal >
+	Literal < AtomLiteral ListLiteral >
 
 	AtomLiteral :: /[^() ]/+
 	ListLiteral :: "(" [Value {" " Value}] ")"
-	Function :: "(" < Quote Head Tail > ")" >> ([open, inner, close]) => inner.output
-	
-	List ++ Value /[^]/+ :: ListLiteral ?? ([open, inner]) => inner.length > 1
 
-	Quote :: "quote " Value >> ([quote, value]) => value.output
-	Head :: "head " List >> ([head, [open, [value]]]) => value.output
-	Tail :: "tail " List >> ([tail, [open, [head, value]]]) => "(" + value.output.trim() + ")"
+	FunctionCall :: "(" Function ")" >> ([open, inner, close]) => inner.output
+	Function < Quote Head Tail Concat Equal IsAtom Cond >
+
+	Quote :: "quote " Literal >> ([quote, value]) => value.output
+	Head :: "head " ExplicitListNonEmpty >> ([head, [open, [value]]]) => value.output
+	Tail :: "tail " ExplicitListNonEmpty >> ([tail, [open, [head, value]]]) => "(" + value.output.trim() + ")"
+	Concat :: "concat " ImplicitListInner " " ImplicitListInner >> ([concat, left, gap, right]) => "(" + left.output + (right.output? " " + right.output : "") + ")"
+	Equal :: "equal " Value " " Value >> ([equal, left, gap, right]) => {
+		if (left.output === "()" && right.output === "false") return true
+		if (left.output === "false" && right.output === "()") return true
+		return left.output === right.output? "true" : "false"
+	}
+	IsAtom <
+		:: "isatom " ExplicitAtom >> "true"
+		:: "isatom " Value >> "false"
+	>
+	Cond :: "cond " ExplicitListCond >> ([cond, value]) => value.output
+
+	ExplicitFalse ++ Value /[^]/+ :: "false" | "()"
+	ExplicitList ++ Value /[^]/+ :: ListLiteral
+	ExplicitListNonEmpty :: ExplicitList ?? ([open, inner]) => inner.length > 1
+	ExplicitAtom ++ Value /[^]/+ :: AtomLiteral
+
+	ExplicitListCond ++ ExplicitList /[^]/+ :: "(" [ExplicitFalse {" " ExplicitFalse}] [" " Value] {" " Value} ")" >> ([open, falses, [gap, value]]) => value? value.output : "false"
+
+	ImplicitList ++ Value /[^]/+ :: <
+		:: ListLiteral
+		:: AtomLiteral >> (atom) => "(" + atom + ")"
+	>
+
+	ImplicitListInner ++ Value /[^]/+ :: <
+		:: ListLiteral >> ([open, inner]) => inner.output
+		:: AtomLiteral
+	>
 
 `).log()
 
 console.clear()
-LispTode.Sanitise("hi(yo)").output.d
-LispTode("Hello").output.d
-LispTode("(Hello world!)").output.d
-LispTode("(quote (Hello world!))").output.d
-LispTode("(head (2 3 5))").output.d
-LispTode("(tail (2 3 5))").output.d
-LispTode("(head (quote 2))").output.d
-LispTode("(head (quote (5 3)))").output.d
-LispTode("(head Lu)").output.d
-LispTode("(head())").output.d
+//LispTode.Sanitise("hi(yo)".d).output.d
+LispTode("Hello".d).output.d
+LispTode("(Hello world!)".d).output.d
+LispTode("(quote (Hello world!))".d).output.d
+LispTode("(head (2 3 5))".d).output.d
+LispTode("(tail (2 3 5))".d).output.d
+LispTode("(tail (2))".d).output.d
+LispTode("(head (quote 2))".d).output.d
+LispTode("(head (quote (5 3)))".d).output.d
+LispTode("(head Lu)".d).output.d
+LispTode("(head())".d).output.d
+
+
+LispTode("(concat A (B C))".d).output.d
+LispTode("(concat (A B) (BC))".d).output.d
+LispTode("(concat (A B) ())".d).output.d
+
+LispTode("(equal A A)".d).output.d
+LispTode("(equal (A) A)".d).output.d
+
+LispTode("(isatom (A))".d).output.d
+LispTode("(isatom A)".d).output.d
+LispTode("(isatom ())".d).output.d
+LispTode("(quote (head (a b)))".d).output.d
+
+LispTode("(cond (false yoohoo lol))".d).output.d
+LispTode("(cond (false () false))".d).output.d
 
 </script>
