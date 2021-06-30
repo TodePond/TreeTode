@@ -8,6 +8,7 @@ MotherTode.install(window)
 const LispTode = MotherTode(`
 	++ Sanitise
 	:: {WhiteSpace} Value EOF
+	@@ (args) => ({...args})
 	>> ([ws, value]) => value.output
 	
 	WhiteSpace :: " " | "\n" | "	"
@@ -23,19 +24,19 @@ const LispTode = MotherTode(`
 		:: /[^]/
 	>*
 
-	Value < FunctionCall VariableCall Literal >
+	Value < FunctionCall LambdaCall Literal >
 	Literal < AtomLiteral ListLiteral >
 
 	AtomLiteral :: /[^() ]/+
 	ListLiteral :: "(" [Value {" " Value}] ")"
 
-	VariableCall :: Variable
-	Variable <
-		:: "name" >> "Lu"
-	>
-
+	LambdaCall :: "((" Lambda ") " AppliedArgs ")" ?? ([open, [lopen, [popen, params]], close, args]) => {
+		return params.length === args.length
+	}
 	FunctionCall :: "(" Function ")" >> ([open, inner, close]) => inner.output
 	Function < Quote Head Tail Concat Equal IsAtom Cond Lambda >
+
+	AppliedArgs :: [Value {" " Value}]
 
 	Quote :: "quote " Literal >> ([quote, value]) => value.output
 	Head :: "head " ExplicitListNonEmpty >> ([head, [open, [value]]]) => value.output
@@ -51,12 +52,13 @@ const LispTode = MotherTode(`
 		:: "isatom " Value >> "false"
 	>
 	Cond :: "cond " ExplicitListCond >> ([cond, value]) => value.output
-	Lambda :: "lambda " ExplicitListAtoms " " 
+	Lambda :: "lambda " ExplicitListOfAtoms " " Literal
 
 	ExplicitFalse ++ Value /[^]/+ :: "false" | "()"
 	ExplicitList ++ Value /[^]/+ :: ListLiteral
 	ExplicitListNonEmpty :: ExplicitList ?? ([open, inner]) => inner.length > 1
 	ExplicitAtom ++ Value /[^]/+ :: AtomLiteral
+	ExplicitListOfAtoms ++ Value /[^]/+ :: "(" [AtomLiteral {" " AtomLiteral}] ")"
 
 	ExplicitListCond ++ ExplicitList /[^]/+ :: "(" [ExplicitFalse {" " ExplicitFalse}] [" " Value] {" " Value} ")" >> ([open, falses, [gap, value]]) => value? value.output : "false"
 
@@ -101,5 +103,8 @@ LispTode("(quote (head (a b)))".d).output.d
 LispTode("(cond (false yoohoo lol))".d).output.d
 LispTode("(cond (false () false))".d).output.d
 LispTode("name".d).output.d
+
+LispTode("(lambda (a b) a)").output.d
+LispTode("((lambda (a b) a) 2 3)").output.d
 
 </script>
