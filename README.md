@@ -31,8 +31,8 @@ greeting
 >> hello luke
 
 // Function
-(define greet (lambda (name) '(hello name))
->> (define greet (lambda (name) (hello name))
+(define greet (lambda (name) '(hello name)))
+>> (define greet (lambda (name) (hello name)))
 
 greet luke
 >> hello luke
