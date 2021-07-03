@@ -4,107 +4,133 @@
 
 Habitat.install(window)
 MotherTode.install(window)
+
+const LispTode = (source) => {
+	const result = LispToder(source)
+	if (result.success) return result.output
+	return result
+}
 	
-const LispTode = MotherTode(`
+const LispToder = MotherTode(`
+
 	++ Sanitise
-	:: {WhiteSpace} Value EOF
-	@@ (args) => ({...args})
-	>> ([ws, value]) => value.output
-	
+	REST :: /[^]/+ | EOF
 	WhiteSpace :: " " | "\n" | "	"
 	Sanitise <
-		:: "(" WhiteSpace+ ")" >> "()"
-		:: ")" WhiteSpace+ "(" >> ") ("
-		:: /[^()]/ WhiteSpace* "(" >> ([c]) => c + " ("
-		:: ")" WhiteSpace* /[^()]/ >> ([close, gap, c]) => ") " + c
+		:: "{{" SanitiseJavaScriptRest SanitiseJavaScriptEnd
+		:: "(" WhiteSpace+ ")" >> ([open, inner, close]) => open + close
+		:: ")" WhiteSpace+ "(" >> ([close, inner, open]) => close + " " + open
+		:: /[^()]/ WhiteSpace* "(" >> ([c, ws, open]) => c + " " + open
+		:: ")" WhiteSpace* /[^()]/ >> ([close, gap, c]) => close + " " + c
 		:: "(" WhiteSpace+ >> "("
 		:: WhiteSpace+ EOF >> ""
 		:: WhiteSpace+ ")" >> ")"
 		:: WhiteSpace+ >> " "
 		:: /[^]/
 	>*
+	
+	SanitiseJavaScriptRest :: "}}" | (/[^]/ SanitiseJavaScriptRest)
+	SanitiseJavaScriptEnd <
+		:: WhiteSpace+ ")" >> ")"
+		:: WhiteSpace+ >> " "
+		>> ""
+	>
 
-	Value < FunctionCall LambdaCall Literal >
-	Literal < AtomLiteral ListLiteral >
+	:: {WhiteSpace} Value EOF
+	>> ([ws, value]) => value.output
 
-	AtomLiteral :: /[^() ]/+
-	ListLiteral :: "(" [Value {" " Value}] ")"
+	Value :: Quote | Call | Function | Variable | JavaScript | Atom | Definition | List
+	Values :: Value {" " Value}
+	Atom :: /[^() \n	]/+
+	List <
+		++ "(" Function REST :: Value
+		++ "(" Call REST :: Value
+		++ "(" Variable REST :: Value
+		:: "(" Values? ")"
+	>
+	QuotedList :: "(" [Atom {" " Atom}] ")"
+	Quote :: "'" [" "] < JavaScript Atom QuotedList > >> ([open, gap, value]) => value.output
+	Function ++ "(" Global " " REST :: Value
+	Variable ++ Global (<" " ")"> REST) | EOF :: Value
+	Global <
+		:: "name" >> "Lu"
+	>
 
-	LambdaCall :: "((" Lambda ") " AppliedArgs ")" ?? ([open, [lopen, [popen, params]], close, args]) => {
-		return params.length === args.length
+	Definition :: "(define " Value " " Value ")" >> (result) => {
+		const [define, name, gap, value] = result
+		LispToder.Global.terms.unshift(MotherTode(':: "' + name + '"' + " >> '" + value + "'"))
+		return result.output
 	}
-	FunctionCall :: "(" Function ")" >> ([open, inner, close]) => inner.output
-	Function < Quote Head Tail Concat Equal IsAtom Cond Lambda >
 
-	AppliedArgs :: [Value {" " Value}]
-
-	Quote :: "quote " Literal >> ([quote, value]) => value.output
-	Head :: "head " ExplicitListNonEmpty >> ([head, [open, [value]]]) => value.output
-	Tail :: "tail " ExplicitListNonEmpty >> ([tail, [open, [head, value]]]) => "(" + value.output.trim() + ")"
-	Concat :: "concat " ImplicitListInner " " ImplicitListInner >> ([concat, left, gap, right]) => "(" + left.output + (right.output? " " + right.output : "") + ")"
-	Equal :: "equal " Value " " Value >> ([equal, left, gap, right]) => {
-		if (left.output === "()" && right.output === "false") return true
-		if (left.output === "false" && right.output === "()") return true
-		return left.output === right.output? "true" : "false"
+	JavaScript :: "{{" JavaScriptRest
+	JavaScriptRest :: "}}" | (/[^]/ JavaScriptRest)
+	Call ++ Apply REST :: Value
+	Apply :: "(" JavaScript " " Arguments ")" >> ([open, js, gap, args]) => {
+		const inner = js.output.slice(2, -2)
+		const func = new Function("return " + inner)()
+		const argsArray = new Function("return " + args.output)()
+		const result = func(...argsArray).toString()
+		return result
 	}
-	IsAtom <
-		:: "isatom " ExplicitAtom >> "true"
-		:: "isatom " Value >> "false"
+
+	Arguments :: Argument {ArgumentsTail} >> (args) => '[' + args + ']'
+	ArgumentsTail :: " " Argument >> ([gap, arg]) => ", " + arg
+	Argument ++ Value REST :: <
+		:: JavaScript >> (js) => "'" + js.output.slice(2, -2).trim() + "'"
+		:: ArgumentAtom
+		:: "(" ArgumentAtoms? ")" >> ([open, inner, close]) => '[' + inner + ']'
 	>
-	Cond :: "cond " ExplicitListCond >> ([cond, value]) => value.output
-	Lambda :: "lambda " ExplicitListOfAtoms " " Literal
+	ArgumentAtom :: Atom >> (atom) => '"' + atom + '"'
+	ArgumentAtoms :: ArgumentAtom {ArgumentAtomsTail}
+	ArgumentAtomsTail :: " " ArgumentAtom >> ([gap, atom]) => ", " + atom
+	
+`)
 
-	ExplicitFalse ++ Value /[^]/+ :: "false" | "()"
-	ExplicitList ++ Value /[^]/+ :: ListLiteral
-	ExplicitListNonEmpty :: ExplicitList ?? ([open, inner]) => inner.length > 1
-	ExplicitAtom ++ Value /[^]/+ :: AtomLiteral
-	ExplicitListOfAtoms ++ Value /[^]/+ :: "(" [AtomLiteral {" " AtomLiteral}] ")"
-
-	ExplicitListCond ++ ExplicitList /[^]/+ :: "(" [ExplicitFalse {" " ExplicitFalse}] [" " Value] {" " Value} ")" >> ([open, falses, [gap, value]]) => value? value.output : "false"
-
-	ImplicitList ++ Value /[^]/+ :: <
-		:: ListLiteral
-		:: AtomLiteral >> (atom) => "(" + atom + ")"
-	>
-
-	ImplicitListInner ++ Value /[^]/+ :: <
-		:: ListLiteral >> ([open, inner]) => inner.output
-		:: AtomLiteral
-	>
-
-`).log()
-
-console.clear()
-//LispTode.Sanitise("hi(yo)".d).output.d
-LispTode("Hello".d).output.d
-LispTode("(Hello world!)".d).output.d
-LispTode("(quote (Hello world!))".d).output.d
-LispTode("(head (2 3 5))".d).output.d
-LispTode("(tail (2 3 5))".d).output.d
-LispTode("(tail (2))".d).output.d
-LispTode("(head (quote 2))".d).output.d
-LispTode("(head (quote (5 3)))".d).output.d
-LispTode("(head Lu)".d).output.d
-LispTode("(head())".d).output.d
-
-
-LispTode("(concat A (B C))".d).output.d
-LispTode("(concat (A B) (BC))".d).output.d
-LispTode("(concat (A B) ())".d).output.d
-
-LispTode("(equal A A)".d).output.d
-LispTode("(equal (A) A)".d).output.d
-
-LispTode("(isatom (A))".d).output.d
-LispTode("(isatom A)".d).output.d
-LispTode("(isatom ())".d).output.d
-LispTode("(quote (head (a b)))".d).output.d
-
-LispTode("(cond (false yoohoo lol))".d).output.d
-LispTode("(cond (false () false))".d).output.d
-LispTode("name".d).output.d
-
-LispTode("(lambda (a b) a)").output.d
-LispTode("((lambda (a b) a) 2 3)").output.d
-
+LispTode("27".d).d
+"".d
+LispTode("(Hello world!)".d).d
+"".d
+LispTode("(2 (3 (4 5) 6))".d).d
+"".d
+LispTode("(my 'name is name)".d).d
+"".d
+LispTode("(define age 27)".d).d
+"".d
+LispTode("(I am age years old)".d).d
+"".d
+LispTode("(define scores (3 2 5))".d).d
+"".d
+LispTode("(my 'scores are scores)".d).d
+"".d
+LispTode("(define team (Bob Luke Kevin))".d).d
+"".d
+LispTode("team".d).d
+"".d
+LispTode("(define 'name Luke)".d).d
+"".d
+LispTode('{{ () => "(Hello world!)" }}'.d).d
+"".d
+LispTode('({{ () => "(Hello world!)" }} ())'.d).d
+"".d
+LispTode('(define greet {{ (name) => "(Hello " + name + "!)" }})'.d).d
+"".d
+LispTode('({{ (name) => "(Hello " + name + "!)" }} Bob)'.d).d
+"".d
+LispTode("(greet Bob)".d).d
+"".d
+LispTode('(define add {{ (a, b) => parseInt(a) + parseInt(b) }})'.d).d
+"".d
+LispTode('(add 3 2)'.d).d
+"".d
+LispTode(`(define lambda {{ (args, body, b) => {
+	//return "YO"
+	return ("{{ (" + args.join(", ") + ") => LispTode(" + body.join(" ") + ")}"+"}")
+} }})`.d).d
+"".d
+//LispTode(`((lambda (a b) {{ parseInt(a) - parseInt(b) }}) 5 2)`.d).d
+//"".d
+LispTode(`(define addOne (lambda (a) '(add 2 1)))`.d).d
+	"".d
+	LispTode(`(addOne 3)`.d).d
+"".d
 </script>
