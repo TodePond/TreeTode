@@ -5,8 +5,8 @@
 Habitat.install(window)
 MotherTode.install(window)
 
-const LispTode = (source) => {
-	const result = LispToder(source)
+const LispTode = (source, argData) => {
+	const result = Term.args(LispToder, (args) => ({...args, ...argData}))(source)
 	if (result.success) return result.output
 	return result
 }
@@ -54,11 +54,17 @@ const LispToder = MotherTode(`
 	Variable ++ Global (<" " ")"> REST) | EOF :: Value
 	Global <
 		:: "name" >> "Lu"
+		(
+			:: Atom
+			?? (atom) => (atom.args.hasOwnProperty(atom.output))
+			>> (atom) => (atom.args[atom.output])
+		)
 	>
 
 	Definition :: "(define " Value " " Value ")" >> (result) => {
 		const [define, name, gap, value] = result
-		LispToder.Global.terms.unshift(MotherTode(':: "' + name + '"' + " >> '" + value + "'"))
+		const mt = ':: "' + name + '"' + " >> \`" + value + "\`"
+		LispToder.Global.terms.unshift(MotherTode(mt))
 		return result.output
 	}
 
@@ -76,7 +82,7 @@ const LispToder = MotherTode(`
 	Arguments :: Argument {ArgumentsTail} >> (args) => '[' + args + ']'
 	ArgumentsTail :: " " Argument >> ([gap, arg]) => ", " + arg
 	Argument ++ Value REST :: <
-		:: JavaScript >> (js) => "'" + js.output.slice(2, -2).trim() + "'"
+		:: JavaScript >> (js) => "\`" + js.output.slice(2, -2).trim() + "\`"
 		:: ArgumentAtom
 		:: "(" ArgumentAtoms? ")" >> ([open, inner, close]) => '[' + inner + ']'
 	>
@@ -123,14 +129,17 @@ LispTode('(define add {{ (a, b) => parseInt(a) + parseInt(b) }})'.d).d
 LispTode('(add 3 2)'.d).d
 "".d
 LispTode(`(define lambda {{ (args, body, b) => {
-	//return "YO"
-	return ("{{ (" + args.join(", ") + ") => LispTode(" + body.join(" ") + ")}"+"}")
+	return ("{{ (" + args.join(", ") + ") => LispTode('(" + body.join(" ") + ")', {" + args.join(", ") + "})}"+"}")
 } }})`.d).d
 "".d
-//LispTode(`((lambda (a b) {{ parseInt(a) - parseInt(b) }}) 5 2)`.d).d
+//LispTode(`((lambda (a b) {{ parseInt(a) - parseInt(b) }}) 5 2)`.d).da
 //"".d
-LispTode(`(define addOne (lambda (a) '(add 2 1)))`.d).d
-	"".d
-	LispTode(`(addOne 3)`.d).d
+LispTode(`(define addOne (lambda (a) '(add a 1)))`.d).d
+"".d
+LispTode(`(addOne 3)`.d).d
+"".d
+LispTode(`(define + (lambda (a b) '(add a b)))`.d).d
+"".d
+LispTode(`(+ 3 2)`.d).d
 "".d
 </script>
