@@ -37,3 +37,13 @@ greeting
 greet luke
 >> hello luke
 ```
+
+// JavaScript
+({{ (name) => "(goodbye " + name + ")"}} luke)
+>> (goodbye luke)
+
+(define shout {{ (word) => word + "!"}})
+>> (define shout {{ (word) => word + "!"}})
+
+(shout hello)
+>> hello!
