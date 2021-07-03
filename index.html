@@ -10,6 +10,14 @@ const LispTode = (source, argData) => {
 	if (result.success) return result.output
 	return result
 }
+
+const resetGlobals = () => {
+	Term.resetCache()
+	LispToder.Global.terms = []
+LispTode(`(define lambda {{ (args, body, b) => {
+	return ("{{ (" + args.join(", ") + ") => LispTode('(" + body.join(" ") + ")', {" + args.join(", ") + "})}"+"}")
+} }})`)
+}
 	
 const LispToder = MotherTode(`
 
@@ -50,16 +58,17 @@ const LispToder = MotherTode(`
 	>
 	QuotedList :: "(" [Atom {" " Atom}] ")"
 	Quote :: "'" [" "] < JavaScript Atom QuotedList > >> ([open, gap, value]) => value.output
-	Function ++ "(" Global " " REST :: Value
-	Variable ++ Global (<" " ")"> REST) | EOF :: Value
+	Function ++ "(" Global | Local " " REST :: Value
+	Variable ++ Global | Local (<" " ")"> REST) | EOF :: Value
 	Global <
-		:: "name" >> "Lu"
-		(
-			:: Atom
-			?? (atom) => (atom.args.hasOwnProperty(atom.output))
-			>> (atom) => (atom.args[atom.output])
-		)
+		?? false
 	>
+
+	Local (
+		:: Atom
+		?? (atom) => (atom.args.hasOwnProperty(atom.output))
+		>> (atom) => (atom.args[atom.output])
+	)
 
 	Definition :: "(define " Value " " Value ")" >> (result) => {
 		const [define, name, gap, value] = result
@@ -142,4 +151,18 @@ LispTode(`(define + (lambda (a b) '(add a b)))`.d).d
 "".d
 LispTode(`(+ 3 2)`.d).d
 "".d
+
+print("WELCOME TO LISPTODE!!!")
+print("You can try it out by using the LispTode function!")
+print("For example...")
+print('%cLispTode("(+ 3 2)")', "color: blue")
+print('%cLispTode("(Hello world!)")', "color: blue")
+print('%cLispTode("((lambda (x) \'(+ x 2)) 5)")', "color: blue")
+print('%cLispTode("(define score 20)")', "color: blue")
+print('%cLispTode("(define double (lambda (x) \'(+ x x)))")', "color: blue")
+print("")
+print("By the way, you can reset the globals by using this function:")
+print('%cresetGlobals()', "color: blue")
+print("")
+
 </script>
