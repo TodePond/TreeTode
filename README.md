@@ -34,7 +34,7 @@ greeting
 (define greet (lambda (name) '(hello name)))
 >> (define greet (lambda (name) (hello name)))
 
-greet luke
+(greet luke)
 >> hello luke
 
 // JavaScript
