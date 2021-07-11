@@ -6,6 +6,7 @@ Habitat.install(window)
 MotherTode.install(window)
 
 const LispTode = (source, argData) => {
+	Term.resetCache()
 	const result = Term.args(LispToder, (args) => ({...args, ...argData}))(source)
 	if (result.success) return result.output
 	return result
