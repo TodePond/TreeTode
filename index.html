@@ -9,7 +9,8 @@ const TreeTode = (source, argData) => {
 	Term.resetCache()
 	const result = Term.args(TreeToder, (args) => ({...args, ...argData}))(source)
 	if (result.success) {
-		return new Function("return " + result.output.d)()
+		//return new Function("return " + result.output.d)()
+		return result.output
 	}
 	return result
 }
@@ -24,50 +25,71 @@ const resetGlobals = () => {
 
 Reflect.defineProperty(Object.prototype, "_", {value: undefined, writable: true, configurable: true})
 
+const arrayToTreeTode = (a) => {
+	let s = ""
+	for (const v of a) {
+		if (v.is(String)) s += v
+		else if (v.is(Array)) s += "(" + arrayToTreeTode(v) + ")"
+		s += " "
+	}
+	s = s.trim()
+	return s
+}
+
 const TreeToder = MotherTode(`
 
-	:: [_] Value EOF
+	:: [_] ToTreeTode EOF
 
 	REST :: /[^]/+ | EOF
 	_ :: " " | "\n" | "	"
 
-	Value < List JavaScript Group Atom >
+	ToTreeTode (
+		:: Value
+		Value < Call List Function Group Atom >
 
-	List :: ListInner >> (inner) => "[" + inner + "]"
-	ListInner :: ListValue~ListInner _ ListValue >> ([left, gap, right]) => left + ", " + right
-	ListValue < ListInner JavaScript Group Atom >
+		Atom :: /[^() \n	]/+
+		Group :: "(" ([_] Value [_]) ")"
+		List :: Value~List _ Value
 
-	Atom :: /[^() \n	]/+ >> (atom) => '"' + atom + '"'
-	
-	Group :: "(" ([_] Value [_]) ")" >> ([open, inner]) => inner.output
+		Function (
+			:: "{{" Rest
+			Rest :: "}}" | (/[^]/ Rest)
+		)
 
-	JavaScript (
-		:: "{{" Rest
-		>> ([open, rest]) => rest.output
-		Rest <
-			:: "}}" >> ""
-			:: /[^]/ Rest
-		>
-	)
-	
-	
-	
-	
-	Call (
-		:: JavaScript [_] Arguments
-		?? ([javaScript, gap, args]) => {
-			const inner = javaScript.output.slice(2, -2)
-			const func = new Function("return " + inner)()
-			args.output.d
+		Call :: Function [_] Arguments >> ([js, gap, args]) => {
+			const argsArray = new Function("return " + args.output)()
+			const func = new Function("return " + js.output.slice(2, -2))()
+			if (typeof func !== "function") throw new Error("[TreeTode] Embedded javascript must be a function")
+			const chosenArgs = argsArray.slice(0, func.length)
+			const remainingArgs = argsArray.slice(func.length)
+			const result = func(...chosenArgs).toString()
+			const tail = remainingArgs.length === 0? "" : " " + arrayToTreeTode(remainingArgs)
+			return result + tail
 		}
-		>> "CALL"
+		Arguments ++ Value EOF :: ToJavaScript
 	)
 
-	Arguments :: < ArgumentList ArgumentGroup ArgumentAtom >
-	ArgumentList :: Arguments~ArgumentList _ Arguments >> ([left, gap, right]) => left + ", " + right
-	ArgumentGroup :: Group >> (group) => "[" + group + "]"
-	ArgumentAtom :: Atom >> (atom) => '"' + atom + '"'
+	ToJavaScript (
+		:: Value
+		>> (value) => value.output[0] !== "["? "[" + value + "]" : value.output
+		Value :: < List Function Group Atom >
+
+		Atom :: /[^() \n	]/+ >> (atom) => '"' + atom + '"'
+		Group :: "(" ([_] Value [_]) ")" >> ([open, inner]) => inner.output
+
+		List :: ListInner >> (inner) => "[" + inner + "]"
+		ListInner :: ListValue~ListInner _ ListValue >> ([left, gap, right]) => left + ", " + right
+		ListValue < ListInner Function Group Atom >
+		
+		Function (
+			:: "{{" Rest
+			>> (func) => '"' + func + '"'
+			Rest :: "}}" | (/[^]/ Rest)
+		)
+	)
+
 `)
+
 
 TreeTode(`luke`.d).d
 "".d
@@ -92,6 +114,14 @@ TreeTode(`{{ name => "hello " + name }} luke`.d).d
 TreeTode(`{{ name => "hello " + name }} luke bob`.d).d
 "".d
 TreeTode(`{{ name => "hello " + name }} luke (bob)`.d).d
+"".d
+TreeTode(`{{ name => "hello " + name }} (luke bob)`.d).d
+"".d
+TreeTode(`{{ name => "hello " + name }} luke bob kevin`.d).d
+"".d
+TreeTode(`{{ name => "hello " + name }} luke (bob kevin)`.d).d
+"".d
+TreeTode(`{{ name => "hello " + name }} {{ x => x }}`.d).d
 "".d
 
 /*const LispToder = MotherTode(`
