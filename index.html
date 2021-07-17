@@ -49,12 +49,21 @@ const TreeToder = MotherTode(`
 
 	ToTreeTode (
 		:: Value
-		Value < Call List Function Group Resolve Atom >
+		Value < Call List Function Group Quote Resolve Atom >
 
 		Atom :: /[^() \n	]/+
 		Group :: "(" ([_] Value [_]) ")"
 		List :: Value~List _ Value
 		Resolve ++ Global REST :: Value
+
+		Quote (
+			:: "'" [_] Value
+			>> ([open, gap, value]) => value
+			Value < List Function Group Atom >
+			Group :: "(" ([_] Value [_]) ")"
+			List :: Value~List _ Value
+		)
+
 		Global <
 			(
 				:: "define"
@@ -85,8 +94,8 @@ const TreeToder = MotherTode(`
 				const tail = remainingArgs.length === 0? "" : " " + arrayToTreeTode(remainingArgs)
 				return result + tail
 			}
+			Arguments ++ Value REST :: ToJavaScript
 		)
-		Arguments ++ Value REST :: ToJavaScript
 	)
 
 	ToJavaScript (
@@ -141,7 +150,7 @@ TreeTode(`{{ name => "hello " + name }} luke bob kevin`.d).d
 "".d
 TreeTode(`{{ name => "hello " + name }} luke (bob kevin)`.d).d
 "".d
-TreeTode(`{{ name => "hello " + name }} {{ x => x }}`.d).d
+TreeTode(`{{ name => "hello " + name }} {{ x => x }} foo`.d).d
 "".d
 TreeTode(`{{ (a, b) => a.as(Number) + b.as(Number) }} 23 2 7`.d).d
 "".d
@@ -163,6 +172,10 @@ TreeTode(`define age add 26 1`.d).d
 TreeTode(`define - {{ (a, b) => a - b}}`.d).d
 "".d
 TreeTode(`- 3 2`.d).d
+"".d
+TreeTode(`'name`.d).d
+"".d
+TreeTode(`'(add 3 2)`.d).d
 "".d
 
 /*const LispToder = MotherTode(`
