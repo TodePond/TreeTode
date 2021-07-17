@@ -96,7 +96,7 @@ const TreeToder = MotherTode(`
 				const chosenArgs = argsArray.slice(0, func.length)
 				const remainingArgs = argsArray.slice(func.length)
 				const result = func(...chosenArgs).toString()
-				const tail = remainingArgs.length === 0? "" : " " + arrayToTreeTode(remainingArgs).d
+				const tail = remainingArgs.length === 0? "" : " " + arrayToTreeTode(remainingArgs)
 				return result + tail
 			}
 			Arguments ++ Value REST :: ToJavaScript
@@ -120,11 +120,14 @@ const TreeToder = MotherTode(`
 	ToJavaScript (
 		:: Value
 		>> (value) => value.output[0] !== "["? "[" + value + "]" : value.output
-		Value :: < List Function Group Quote Atom >
+		Value :: < List Group Function Quote Atom >
+		SingleValue :: < Function Group Quote Atom >
 
 		Quote :: ToQuote >> (quote) => '"' + quote + '"'
 		Atom :: /[^() \n	]/+ >> (atom) => '"' + atom + '"'
-		Group :: "(" [[_] Value [_]] ")" >> ([open, inner]) => inner.output
+		Group :: GroupSingle | GroupMulti
+		GroupSingle :: "(" [[_] SingleValue [_]] ")" >> ([open, inner]) => "[" + inner.output + "]"
+		GroupMulti :: "(" [[_] List [_]] ")" >> ([open, inner]) => inner.output
 
 		List :: ListInner >> (inner) => "[" + inner + "]"
 		ListInner :: ListValue~ListInner _ ListValue >> ([left, gap, right]) => left + ", " + right
@@ -146,7 +149,7 @@ TreeTode(`define lambda {{ (args, body) => {
 	let argString = args instanceof Array? args.join(", ") : args
 	let bodyString = body instanceof Array? body.join(" ") : body
 	if (bodyString[0] === SQ) bodyString = bodyString.slice(1)
-	return "{{ (" + argString + ") => TreeTode(" + BQ+bodyString+BQ + ", {" + argString + "}) }" + "}"
+	return "{{ (" + argString + ") => TreeTode(" + DQ+bodyString+DQ + ", {" + argString + "}) }" + "}"
 } }}`)
 
 TreeTode(`define reset {{ () => { TreeToder.ToTreeTode.Global.terms = [TreeTode.define]; return "reset"; } }}`)
@@ -221,89 +224,5 @@ TreeTode(`lambda (a) '(add a 1)`.d).d
 "".d
 TreeTode(`lambda (a) '(add a 1) 3`.d).d
 "".d
-
-
-/*const LispToder = MotherTode(`
-
-	++ Sanitise
-	REST :: /[^]/+ | EOF
-	WhiteSpace :: " " | "\n" | "	"
-	Sanitise <
-		:: "{{" SanitiseJavaScriptRest SanitiseJavaScriptEnd
-		:: "(" WhiteSpace+ ")" >> ([open, inner, close]) => open + close
-		:: ")" WhiteSpace+ "(" >> ([close, inner, open]) => close + " " + open
-		:: /[^()]/ WhiteSpace* "(" >> ([c, ws, open]) => c + " " + open
-		:: ")" WhiteSpace* /[^()]/ >> ([close, gap, c]) => close + " " + c
-		:: "(" WhiteSpace+ >> "("
-		:: WhiteSpace+ EOF >> ""
-		:: WhiteSpace+ ")" >> ")"
-		:: WhiteSpace+ >> " "
-		:: /[^]/
-	>*
-	
-	SanitiseJavaScriptRest :: "}}" | (/[^]/ SanitiseJavaScriptRest)
-	SanitiseJavaScriptEnd <
-		:: WhiteSpace+ ")" >> ")"
-		:: WhiteSpace+ >> " "
-		>> ""
-	>
-
-	:: {WhiteSpace} Value EOF
-	>> ([ws, value]) => value.output
-
-	Value :: Quote | Call | Function | Variable | JavaScript | Atom | Definition | List
-	Values :: Value {" " Value}
-	Atom :: /[^() \n	]/+
-	List <
-		++ "(" Function REST :: Value
-		++ "(" Call REST :: Value
-		++ "(" Variable REST :: Value
-		:: "(" Values? ")"
-	>
-	QuotedList :: "(" [Atom {" " Atom}] ")"
-	Quote :: "'" [" "] < JavaScript Atom QuotedList > >> ([open, gap, value]) => value.output
-	Function ++ "(" Global | Local " " REST :: Value
-	Variable ++ Global | Local (<" " ")"> REST) | EOF :: Value
-	Global <
-		?? false
-	>
-
-	Local (
-		:: Atom
-		?? (atom) => (atom.args.hasOwnProperty(atom.output))
-		>> (atom) => (atom.args[atom.output])
-	)
-
-	Definition :: "(define " Value " " Value ")" >> (result) => {
-		const [define, name, gap, value] = result
-		const mt = ':: "' + name + '"' + " >> \`" + value + "\`"
-		LispToder.Global.terms.unshift(MotherTode(mt))
-		return result.output
-	}
-
-	JavaScript :: "{{" JavaScriptRest
-	JavaScriptRest :: "}}" | (/[^]/ JavaScriptRest)
-	Call ++ Apply REST :: Value
-	Apply :: "(" JavaScript " " Arguments ")" >> ([open, js, gap, args]) => {
-		const inner = js.output.slice(2, -2)
-		const func = new Function("return " + inner)()
-		const argsArray = new Function("return " + args.output)()
-		const result = func(...argsArray).toString()
-		return result
-	}
-
-	Arguments :: Argument {ArgumentsTail} >> (args) => '[' + args + ']'
-	ArgumentsTail :: " " Argument >> ([gap, arg]) => ", " + arg
-	Argument ++ Value REST :: <
-		:: JavaScript >> (js) => "\`" + js.output.slice(2, -2).trim() + "\`"
-		:: ArgumentAtom
-		:: "(" ArgumentAtoms? ")" >> ([open, inner, close]) => '[' + inner + ']'
-	>
-	ArgumentAtom :: Atom >> (atom) => '"' + atom + '"'
-	ArgumentAtoms :: ArgumentAtom {ArgumentAtomsTail}
-	ArgumentAtomsTail :: " " ArgumentAtom >> ([gap, atom]) => ", " + atom
-	
-`)
-*/
 
 </script>
