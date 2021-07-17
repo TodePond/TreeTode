@@ -62,7 +62,7 @@ const TreeToder = MotherTode(`
 				const argsArray = new Function("return " + args.output)()
 				const func = new Function("return " + js.output.slice(2, -2))()
 				if (typeof func !== "function") throw new Error("[TreeTode] Embedded javascript must be a function")
-				if (argsArray.length !== func.length) return false
+				if (argsArray.length < func.length) return false
 				return true
 			}
 			>> ([js, gap, args]) => {
@@ -132,7 +132,7 @@ TreeTode(`{{ name => "hello " + name }} luke (bob kevin)`.d).d
 "".d
 TreeTode(`{{ name => "hello " + name }} {{ x => x }}`.d).d
 "".d
-TreeTode(`{{ (a, b) => a.as(Number) + b.as(Number) }} 23 2`.d).d
+TreeTode(`{{ (a, b) => a.as(Number) + b.as(Number) }} 23 2 7`.d).d
 "".d
 
 /*const LispToder = MotherTode(`
