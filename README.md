@@ -1,49 +1,7 @@
-# LispTode
-translates a lisp dialect into color code (v7)
+<img align="right" height="100" src="http://todepond.com/IMG/TreeTode@0.25x.png">
 
-```
-// Atom
-hello
->> hello
+# TreeTode
+Lisp-like language. Supports Color Code as a target language.<br>
+Draft documentation: [l2wilson94.gitbook.io/treetode](https://l2wilson94.gitbook.io/treetode)
 
-// List
-(hello world)
->> (hello world)
-
-// Variable
-(define greeting (hello world))
->> (define greeting (hello world))
-
-// Resolve
-greeting 
->> (hello world)
-
-// Quote
-'greeting
->> greeting
-
-// Lambda
-(lambda (name) '(hello name))
->> (lambda (name) (hello name))
-
-// Call
-((lambda (name) '(hello name)) luke)
->> hello luke
-
-// Function
-(define greet (lambda (name) '(hello name)))
->> (define greet (lambda (name) (hello name)))
-
-(greet luke)
->> hello luke
-
-// JavaScript
-({{ (name) => "(goodbye " + name + ")"}} luke)
->> (goodbye luke)
-
-(define shout {{ (word) => word + "!"}})
->> (define shout {{ (word) => word + "!"}})
-
-(shout hello)
->> hello!
-```
+TreeTode is currently a massive work-in-progress. It doesn't work yet.
