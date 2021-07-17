@@ -41,7 +41,7 @@ const TreeToder = MotherTode(`
 	:: [_] ToTreeTode EOF
 
 	REST :: /[^]/+ | EOF
-	_ :: " " | "\n" | "	"
+	_ < " " "\n" "	">+
 
 	ToTreeTode (
 		:: Value
@@ -56,17 +56,26 @@ const TreeToder = MotherTode(`
 			Rest :: "}}" | (/[^]/ Rest)
 		)
 
-		Call :: Function [_] Arguments >> ([js, gap, args]) => {
-			const argsArray = new Function("return " + args.output)()
-			const func = new Function("return " + js.output.slice(2, -2))()
-			if (typeof func !== "function") throw new Error("[TreeTode] Embedded javascript must be a function")
-			const chosenArgs = argsArray.slice(0, func.length)
-			const remainingArgs = argsArray.slice(func.length)
-			const result = func(...chosenArgs).toString()
-			const tail = remainingArgs.length === 0? "" : " " + arrayToTreeTode(remainingArgs)
-			return result + tail
-		}
-		Arguments ++ Value EOF :: ToJavaScript
+		Call (
+			:: Function [_] Arguments
+			?? ([js, gap, args]) => {
+				const argsArray = new Function("return " + args.output)()
+				const func = new Function("return " + js.output.slice(2, -2))()
+				if (typeof func !== "function") throw new Error("[TreeTode] Embedded javascript must be a function")
+				if (argsArray.length !== func.length) return false
+				return true
+			}
+			>> ([js, gap, args]) => {
+				const argsArray = new Function("return " + args.output)()
+				const func = new Function("return " + js.output.slice(2, -2))()
+				const chosenArgs = argsArray.slice(0, func.length)
+				const remainingArgs = argsArray.slice(func.length)
+				const result = func(...chosenArgs).toString()
+				const tail = remainingArgs.length === 0? "" : " " + arrayToTreeTode(remainingArgs)
+				return result + tail
+			}
+		)
+		Arguments ++ Value REST :: ToJavaScript
 	)
 
 	ToJavaScript (
@@ -122,6 +131,8 @@ TreeTode(`{{ name => "hello " + name }} luke bob kevin`.d).d
 TreeTode(`{{ name => "hello " + name }} luke (bob kevin)`.d).d
 "".d
 TreeTode(`{{ name => "hello " + name }} {{ x => x }}`.d).d
+"".d
+TreeTode(`{{ (a, b) => a.as(Number) + b.as(Number) }} 23 2`.d).d
 "".d
 
 /*const LispToder = MotherTode(`
