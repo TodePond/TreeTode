@@ -45,11 +45,16 @@ const TreeToder = MotherTode(`
 
 	ToTreeTode (
 		:: Value
-		Value < Call List Function Group Atom >
+		Value < Call List Function Group Resolve Atom >
 
 		Atom :: /[^() \n	]/+
 		Group :: "(" ([_] Value [_]) ")"
 		List :: Value~List _ Value
+		Resolve ++ Global REST :: Value
+		Global <
+			:: "name" >> "luke"
+			:: "greet" >> "{{ (name) => 'hello ' + name }}"
+		>
 
 		Function (
 			:: "{{" Rest
@@ -133,6 +138,14 @@ TreeTode(`{{ name => "hello " + name }} luke (bob kevin)`.d).d
 TreeTode(`{{ name => "hello " + name }} {{ x => x }}`.d).d
 "".d
 TreeTode(`{{ (a, b) => a.as(Number) + b.as(Number) }} 23 2 7`.d).d
+"".d
+TreeTode(`name`.d).d
+"".d
+TreeTode(`{{ name => "hello " + name }} name`.d).d
+"".d
+TreeTode(`greet luke`.d).d
+"".d
+TreeTode(`greet name`.d).d
 "".d
 
 /*const LispToder = MotherTode(`
