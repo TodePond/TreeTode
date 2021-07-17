@@ -36,6 +36,10 @@ const arrayToTreeTode = (a) => {
 	return s
 }
 
+const defineFunction = (name, value) => { MotherTode(':: "' + name + '"' + " >> \`" + value + "\`"); }
+const DQ = '"'
+const BQ = '`'
+
 const TreeToder = MotherTode(`
 
 	:: [_] ToTreeTode EOF
@@ -52,8 +56,10 @@ const TreeToder = MotherTode(`
 		List :: Value~List _ Value
 		Resolve ++ Global REST :: Value
 		Global <
-			:: "name" >> "luke"
-			:: "greet" >> "{{ (name) => 'hello ' + name }}"
+			(
+				:: "define"
+				>> \`{{ (name, value) => { TreeToder.ToTreeTode.Global.terms.unshift(MotherTode((':: ' + DQ+name+DQ + ' >> ' + BQ+value+BQ))); return value } }}\`.d
+			)
 		>
 
 		Function (
@@ -97,7 +103,7 @@ const TreeToder = MotherTode(`
 		
 		Function (
 			:: "{{" Rest
-			>> (func) => '"' + func + '"'
+			>> (func) => BQ + func + BQ
 			Rest :: "}}" | (/[^]/ Rest)
 		)
 	)
@@ -139,6 +145,9 @@ TreeTode(`{{ name => "hello " + name }} {{ x => x }}`.d).d
 "".d
 TreeTode(`{{ (a, b) => a.as(Number) + b.as(Number) }} 23 2 7`.d).d
 "".d
+TreeTode(`define name luke`)
+TreeTode(`define greet {{ (name) => "hello " + name }}`)
+TreeTode(`define add {{ (a, b) => a.as(Number) + b.as(Number) }}`)
 TreeTode(`name`.d).d
 "".d
 TreeTode(`{{ name => "hello " + name }} name`.d).d
@@ -146,6 +155,14 @@ TreeTode(`{{ name => "hello " + name }} name`.d).d
 TreeTode(`greet luke`.d).d
 "".d
 TreeTode(`greet name`.d).d
+"".d
+TreeTode(`add 3 2`.d).d
+"".d
+TreeTode(`define age add 26 1`.d).d
+"".d
+TreeTode(`define - {{ (a, b) => a - b}}`.d).d
+"".d
+TreeTode(`- 3 2`.d).d
 "".d
 
 /*const LispToder = MotherTode(`
