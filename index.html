@@ -53,21 +53,12 @@ const TreeToder = MotherTode(`
 
 	ToTreeTode (
 		:: Value
-		Value < List Call Function Group Quote Resolve Atom EOF >
+		Value < List Call Function Group ToQuote Resolve Atom EOF >
 
 		Atom :: /[^() \n	]/+
 		Group :: "(" [[_] Value [_]] ")"
 		List :: Value~List _ Value
 		Resolve ++ (Global | Local) REST :: Value
-
-		Quote (
-			:: "'" [_] Value
-			>> ([open, gap, value]) => open + value
-			Value < Group Quote Atom Function List >
-			Group :: "(" [[_] GroupValue [_]] ")"
-			List :: GroupValue~List _ GroupValue
-			GroupValue < List Group Function Quote Atom >
-		)
 
 		Local (
 			:: Atom
@@ -112,18 +103,26 @@ const TreeToder = MotherTode(`
 		)
 	)
 
+	ToQuote (
+		:: "'" [_] Value
+		>> ([open, gap, value]) => open + value
+		Value < Group ToQuote Atom Function List >
+		Group :: "(" [[_] ListValue [_]] ")"
+		List :: ListValue~List _ ListValue
+		ListValue < List Group Function ToQuote Atom >
+		Atom :: /[^() \n	]/+
+		Function (
+			:: "{{" Rest
+			Rest :: "}}" | (/[^]/ Rest)
+		)
+	)
+
 	ToJavaScript (
 		:: Value
 		>> (value) => value.output[0] !== "["? "[" + value + "]" : value.output
 		Value :: < List Function Group Quote Atom >
 
-		Quote (
-			:: "'" [_] QuoteValue
-			>> ([open, gap, value]) => value.output
-			QuoteValue < Group Quote Atom Function List >
-			Group :: "(" [[_] Value [_]] ")"
-		)
-
+		Quote :: ToQuote >> (quote) => '"' + quote + '"'
 		Atom :: /[^() \n	]/+ >> (atom) => '"' + atom + '"'
 		Group :: "(" [[_] Value [_]] ")" >> ([open, inner]) => inner.output
 
@@ -136,6 +135,7 @@ const TreeToder = MotherTode(`
 			>> (func) => SQ + func + SQ
 			Rest :: "}}" | (/[^]/ Rest)
 		)
+
 	)
 
 `)
@@ -143,8 +143,9 @@ const TreeToder = MotherTode(`
 TreeTode.std = () => {
 TreeTode.define = TreeToder.ToTreeTode.Global.terms[TreeToder.ToTreeTode.Global.terms.length-1]
 TreeTode(`define lambda {{ (args, body) => {
-	const argString = args instanceof Array? args.join(", ") : args
-	const bodyString = body instanceof Array? body.join(" ") : body
+	let argString = args instanceof Array? args.join(", ") : args
+	let bodyString = body instanceof Array? body.join(" ") : body
+	if (bodyString[0] === SQ) bodyString = bodyString.slice(1)
 	return "{{ (" + argString + ") => TreeTode(" + BQ+bodyString+BQ + ", {" + argString + "}) }" + "}"
 } }}`)
 
