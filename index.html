@@ -5,22 +5,96 @@
 Habitat.install(window)
 MotherTode.install(window)
 
-const LispTode = (source, argData) => {
+const TreeTode = (source, argData) => {
 	Term.resetCache()
-	const result = Term.args(LispToder, (args) => ({...args, ...argData}))(source)
-	if (result.success) return result.output
+	const result = Term.args(TreeToder, (args) => ({...args, ...argData}))(source)
+	if (result.success) {
+		return new Function("return " + result.output.d)()
+	}
 	return result
 }
 
 const resetGlobals = () => {
 	Term.resetCache()
-	LispToder.Global.terms = []
-LispTode(`(define lambda {{ (args, body, b) => {
+	//LispToder.Global.terms = []
+/*LispTode(`(define lambda {{ (args, body, b) => {
 	return ("{{ (" + args.join(", ") + ") => LispTode('(" + body.join(" ") + ")', {" + args.join(", ") + "})}"+"}")
-} }})`)
+} }})`)*/
 }
+
+Reflect.defineProperty(Object.prototype, "_", {value: undefined, writable: true, configurable: true})
+
+const TreeToder = MotherTode(`
+
+	:: [_] Value EOF
+
+	REST :: /[^]/+ | EOF
+	_ :: " " | "\n" | "	"
+
+	Value < List JavaScript Group Atom >
+
+	List :: ListInner >> (inner) => "[" + inner + "]"
+	ListInner :: ListValue~ListInner _ ListValue >> ([left, gap, right]) => left + ", " + right
+	ListValue < ListInner JavaScript Group Atom >
+
+	Atom :: /[^() \n	]/+ >> (atom) => '"' + atom + '"'
 	
-const LispToder = MotherTode(`
+	Group :: "(" ([_] Value [_]) ")" >> ([open, inner]) => inner.output
+
+	JavaScript (
+		:: "{{" Rest
+		>> ([open, rest]) => rest.output
+		Rest <
+			:: "}}" >> ""
+			:: /[^]/ Rest
+		>
+	)
+	
+	
+	
+	
+	Call (
+		:: JavaScript [_] Arguments
+		?? ([javaScript, gap, args]) => {
+			const inner = javaScript.output.slice(2, -2)
+			const func = new Function("return " + inner)()
+			args.output.d
+		}
+		>> "CALL"
+	)
+
+	Arguments :: < ArgumentList ArgumentGroup ArgumentAtom >
+	ArgumentList :: Arguments~ArgumentList _ Arguments >> ([left, gap, right]) => left + ", " + right
+	ArgumentGroup :: Group >> (group) => "[" + group + "]"
+	ArgumentAtom :: Atom >> (atom) => '"' + atom + '"'
+`)
+
+TreeTode(`luke`.d).d
+"".d
+TreeTode(`3.14`.d).d
+"".d
+TreeTode(`true`.d).d
+"".d
+TreeTode(`luke bob kevin`.d).d
+"".d
+TreeTode(`3 5 2`.d).d
+"".d
+TreeTode(`luke 27 (bob kevin)`.d).d
+"".d
+TreeTode(`luke (27 bob 99)`.d).d
+"".d
+TreeTode(`(luke 27) (bob 99)`.d).d
+"".d
+TreeTode(`{{ name => "hello " + name }}`.d).d
+"".d
+TreeTode(`{{ name => "hello " + name }} luke`.d).d
+"".d
+TreeTode(`{{ name => "hello " + name }} luke bob`.d).d
+"".d
+TreeTode(`{{ name => "hello " + name }} luke (bob)`.d).d
+"".d
+
+/*const LispToder = MotherTode(`
 
 	++ Sanitise
 	REST :: /[^]/+ | EOF
@@ -101,69 +175,6 @@ const LispToder = MotherTode(`
 	ArgumentAtomsTail :: " " ArgumentAtom >> ([gap, atom]) => ", " + atom
 	
 `)
-
-LispTode("27".d).d
-"".d
-LispTode("(Hello world!)".d).d
-"".d
-LispTode("(2 (3 (4 5) 6))".d).d
-"".d
-LispTode("(my 'name is name)".d).d
-"".d
-LispTode("(define age 27)".d).d
-"".d
-LispTode("(I am age years old)".d).d
-"".d
-LispTode("(define scores (3 2 5))".d).d
-"".d
-LispTode("(my 'scores are scores)".d).d
-"".d
-LispTode("(define team (Bob Luke Kevin))".d).d
-"".d
-LispTode("team".d).d
-"".d
-LispTode("(define 'name Luke)".d).d
-"".d
-LispTode('{{ () => "(Hello world!)" }}'.d).d
-"".d
-LispTode('({{ () => "(Hello world!)" }} ())'.d).d
-"".d
-LispTode('(define greet {{ (name) => "(Hello " + name + "!)" }})'.d).d
-"".d
-LispTode('({{ (name) => "(Hello " + name + "!)" }} Bob)'.d).d
-"".d
-LispTode("(greet Bob)".d).d
-"".d
-LispTode('(define add {{ (a, b) => parseInt(a) + parseInt(b) }})'.d).d
-"".d
-LispTode('(add 3 2)'.d).d
-"".d
-LispTode(`(define lambda {{ (args, body, b) => {
-	return ("{{ (" + args.join(", ") + ") => LispTode('(" + body.join(" ") + ")', {" + args.join(", ") + "})}"+"}")
-} }})`.d).d
-"".d
-//LispTode(`((lambda (a b) {{ parseInt(a) - parseInt(b) }}) 5 2)`.d).da
-//"".d
-LispTode(`(define addOne (lambda (a) '(add a 1)))`.d).d
-"".d
-LispTode(`(addOne 3)`.d).d
-"".d
-LispTode(`(define + (lambda (a b) '(add a b)))`.d).d
-"".d
-LispTode(`(+ 3 2)`.d).d
-"".d
-
-print("WELCOME TO LISPTODE!!!")
-print("You can try it out by using the LispTode function!")
-print("For example...")
-print('%cLispTode("(+ 3 2)")', "color: blue")
-print('%cLispTode("(Hello world!)")', "color: blue")
-print('%cLispTode("((lambda (x) \'(+ x 2)) 5)")', "color: blue")
-print('%cLispTode("(define score 20)")', "color: blue")
-print('%cLispTode("(define double (lambda (x) \'(+ x x)))")', "color: blue")
-print("")
-print("By the way, you can reset the globals by using this function:")
-print('%cresetGlobals()', "color: blue")
-print("")
+*/
 
 </script>
