@@ -1,4 +1,4 @@
-<img align="right" height="100" src="http://todepond.com/IMG/TreeTode@0.25x.png">
+<img align="right" height="100" src="http://img.todepond.com/IMG/TreeTode@0.25x.png">
 
 # TreeTode
 Lisp-like language. Supports Color Code as a target language.<br>
